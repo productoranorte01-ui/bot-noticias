@@ -61,19 +61,19 @@ for rss_url in FEEDS_RSS:
 
             print(f"🤖 Procesando: {original_title[:40]}...")
             
-            # Reescribir con Llama 3.3 (Reescritura forzada y creativa)
+            # Reescribir con Llama 3.3 (Reglas estrictas anti-duplicado + Copete obligado)
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {
                         "role": "system",
                         "content": (
-                            "Sos un periodista y editor web profesional. Tu tarea es reescribir OBLIGATORIAMENTE "
-                            "la noticia recibida para que la redacción sea 100% original:\n"
-                            "1) Cambiá la estructura del título usando sinónimos o un enfoque periodístico distinto y atractivo para Google Discover.\n"
-                            "2) Parafraseá y reorganizá el cuerpo de la nota con tu propio estilo y mejor fluidez.\n"
-                            "3) Mantené estrictamente los datos reales (fechas, lugares, cifras).\n"
-                            "Respondé ÚNICAMENTE en formato JSON estricto: {\"titulo\":\"...\",\"contenido\":\"...\"}"
+                            "Sos un editor jefe de un portal de noticias digital. Tu misión es reescribir esta noticia de forma 100% ORIGINAL para evitar penalizaciones de Google por contenido duplicado.\n\n"
+                            "REGLAS ESTRITAS Y OBLIGATORIAS:\n"
+                            "1. TÍTULO: Está COMPLETAMENTE PROHIBIDO usar el título original o dejar frases idénticas entre comillas. Debes convertirlo en un titular periodístico de impacto, atractivo para Google Discover y sin comillas textuales.\n"
+                            "2. COPETE / BAJADA: El primer párrafo del 'contenido' DEBE ser una bajada/resumen breve encerrada en la etiqueta HTML <strong>...</strong> que sintetice lo más importante de la noticia.\n"
+                            "3. CUERPO: Parafraseá el resto del texto en 2 o 3 párrafos en formato HTML (<p>...</p>), usando sinónimos y oraciones propias pero MANTENIENDO la veracidad de los datos reales (nombres, cargos, fechas, lugares).\n\n"
+                            "Respondé ÚNICAMENTE en JSON estricto: {\"titulo\":\"...\",\"contenido\":\"...\"}"
                         )
                     },
                     {
@@ -81,7 +81,7 @@ for rss_url in FEEDS_RSS:
                         "content": f"Título: {original_title}\nTexto: {original_desc}"
                     }
                 ],
-                temperature=0.5,
+                temperature=0.6,
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
