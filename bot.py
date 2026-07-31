@@ -31,7 +31,7 @@ client = Groq(api_key=GROQ_API_KEY)
 for rss_url in FEEDS_RSS:
     print(f"\n📡 Revisando feed: {rss_url}")
     try:
-        # Agregamos timeout=15 para evitar bloqueos
+        # Timeout de 15 segundos para evitar cuelgues
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
         xml_data = urllib.request.urlopen(req, timeout=15).read()
         root = ET.fromstring(xml_data)
@@ -61,20 +61,27 @@ for rss_url in FEEDS_RSS:
 
             print(f"🤖 Procesando: {original_title[:40]}...")
             
-            # Reescribir con Llama 3.3
+            # Reescribir con Llama 3.3 (Reescritura forzada y creativa)
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sos un periodista profesional. Reescribí la noticia recibida cambiando el título por uno más atractivo para Google Discover y adaptando la redacción del cuerpo, MANTENIENDO ESTRICTAMENTE LA VERACIDAD DE LOS HECHOS. Respondé ÚNICAMENTE en formato JSON estricto: {\"titulo\":\"...\",\"contenido\":\"...\"}"
+                        "content": (
+                            "Sos un periodista y editor web profesional. Tu tarea es reescribir OBLIGATORIAMENTE "
+                            "la noticia recibida para que la redacción sea 100% original:\n"
+                            "1) Cambiá la estructura del título usando sinónimos o un enfoque periodístico distinto y atractivo para Google Discover.\n"
+                            "2) Parafraseá y reorganizá el cuerpo de la nota con tu propio estilo y mejor fluidez.\n"
+                            "3) Mantené estrictamente los datos reales (fechas, lugares, cifras).\n"
+                            "Respondé ÚNICAMENTE en formato JSON estricto: {\"titulo\":\"...\",\"contenido\":\"...\"}"
+                        )
                     },
                     {
                         "role": "user",
                         "content": f"Título: {original_title}\nTexto: {original_desc}"
                     }
                 ],
-                temperature=0.2,
+                temperature=0.5,
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
@@ -95,7 +102,7 @@ for rss_url in FEEDS_RSS:
                 except Exception as e:
                     print(f"⚠️ Error al subir imagen: {e}")
 
-            # Publicar Entrada Directamente (publish)
+            # Publicar Entrada Directamente ("publish")
             post_data = {
                 "title": parsed.get("titulo"),
                 "content": parsed.get("contenido"),
@@ -107,7 +114,7 @@ for rss_url in FEEDS_RSS:
             wp_res = requests.post(f"{WP_URL}/wp-json/wp/v2/posts", auth=(WP_USER, WP_APP_PASS), json=post_data, timeout=20)
             
             if wp_res.status_code in [200, 201]:
-                print(f"✅ Entrada publicada (ID: {wp_res.json().get('id')})")
+                print(f"✅ Entrada publicada con éxito (ID: {wp_res.json().get('id')})")
                 publicadas.add(link)
                 with open(ARCHIVO_HISTORIAL, "a", encoding="utf-8") as f:
                     f.write(link + "\n")
