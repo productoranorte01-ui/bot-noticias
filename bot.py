@@ -31,8 +31,9 @@ client = Groq(api_key=GROQ_API_KEY)
 for rss_url in FEEDS_RSS:
     print(f"\n📡 Revisando feed: {rss_url}")
     try:
+        # Agregamos timeout=15 para evitar bloqueos
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
-        xml_data = urllib.request.urlopen(req).read()
+        xml_data = urllib.request.urlopen(req, timeout=15).read()
         root = ET.fromstring(xml_data)
         
         items = root.findall('.//item')[:3]
@@ -82,31 +83,31 @@ for rss_url in FEEDS_RSS:
             media_id = None
             if image_url:
                 try:
-                    img_resp = requests.get(image_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                    img_resp = requests.get(image_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
                     if img_resp.status_code == 200 and len(img_resp.content) > 0:
                         filename = image_url.split("/")[-1].split("?")[0]
                         if not filename.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                             filename = "imagen_destacada.jpg"
                         files = {'file': (filename, img_resp.content, 'image/jpeg')}
-                        media_res = requests.post(f"{WP_URL}/wp-json/wp/v2/media", auth=(WP_USER, WP_APP_PASS), files=files)
+                        media_res = requests.post(f"{WP_URL}/wp-json/wp/v2/media", auth=(WP_USER, WP_APP_PASS), files=files, timeout=20)
                         if media_res.status_code in [200, 201]:
                             media_id = media_res.json().get('id')
                 except Exception as e:
                     print(f"⚠️ Error al subir imagen: {e}")
 
-            # Publicar Entrada como Borrador
+            # Publicar Entrada Directamente (publish)
             post_data = {
                 "title": parsed.get("titulo"),
                 "content": parsed.get("contenido"),
-                "status": "draft"
+                "status": "publish"
             }
             if media_id:
                 post_data["featured_media"] = media_id
             
-            wp_res = requests.post(f"{WP_URL}/wp-json/wp/v2/posts", auth=(WP_USER, WP_APP_PASS), json=post_data)
+            wp_res = requests.post(f"{WP_URL}/wp-json/wp/v2/posts", auth=(WP_USER, WP_APP_PASS), json=post_data, timeout=20)
             
             if wp_res.status_code in [200, 201]:
-                print(f"✅ Entrada enviada a Borradores (ID: {wp_res.json().get('id')})")
+                print(f"✅ Entrada publicada (ID: {wp_res.json().get('id')})")
                 publicadas.add(link)
                 with open(ARCHIVO_HISTORIAL, "a", encoding="utf-8") as f:
                     f.write(link + "\n")
