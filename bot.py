@@ -65,6 +65,7 @@ for rss_url in FEEDS_RSS:
             # Reescribir con modelo vigente de Groq (llama-3.3-70b-versatile fue dado de baja en agosto 2026)
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
+                reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
                 messages=[
                     {
                         "role": "system",
@@ -73,7 +74,8 @@ for rss_url in FEEDS_RSS:
                             "REGLAS ESTRITAS Y OBLIGATORIAS:\n"
                             "1. TÍTULO: Está COMPLETAMENTE PROHIBIDO usar el título original o dejar frases idénticas entre comillas. Debes convertirlo en un titular periodístico de impacto, atractivo para Google Discover y sin comillas textuales.\n"
                             "2. COPETE / BAJADA: El primer párrafo del 'contenido' DEBE ser una bajada/resumen breve encerrada en la etiqueta HTML <strong>...</strong> que sintetice lo más importante de la noticia.\n"
-                            "3. CUERPO: Parafraseá el resto del texto en 2 o 3 párrafos en formato HTML (<p>...</p>), usando sinónimos y oraciones propias pero MANTENIENDO la veracidad de los datos reales (nombres, cargos, fechas, lugares).\n\n"
+                            "3. CUERPO: Parafraseá el resto del texto en 2 o 3 párrafos en formato HTML (<p>...</p>), usando sinónimos y oraciones propias pero MANTENIENDO la veracidad de los datos reales (nombres, cargos, fechas, lugares).\n"
+                            "4. PROHIBIDO ABSOLUTO: no repitas ninguna oración completa del texto original, ni siquiera cambiando una o dos palabras. Cada oración debe estar redactada con estructura y vocabulario propios.\n\n"
                             "Respondé ÚNICAMENTE en JSON estricto: {\"titulo\":\"...\",\"contenido\":\"...\"}"
                         )
                     },
@@ -82,10 +84,16 @@ for rss_url in FEEDS_RSS:
                         "content": f"Título: {original_title}\nTexto: {original_desc}"
                     }
                 ],
-                temperature=0.6,
+                temperature=0.7,
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
+
+            # RED DE SEGURIDAD: si a pesar de todo la IA devolvió el título igual al original, no publicamos
+            titulo_nuevo = (parsed.get("titulo") or "").strip()
+            if titulo_nuevo.lower() == original_title.strip().lower():
+                print(f"⚠️ La IA no reescribió el título (salió igual al original). Se salta esta nota para evitar contenido duplicado: {link}")
+                continue
 
             # Subir Imagen a WordPress
             media_id = None
