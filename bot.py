@@ -35,20 +35,21 @@ for rss_url in FEEDS_RSS:
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
         xml_data = urllib.request.urlopen(req, timeout=15).read()
         root = ET.fromstring(xml_data)
-        
+
         items = root.findall('.//item')[:3]
-        
+
         for item in items:
             link = item.find('link').text if item.find('link') is not None else ""
-            
+
             # CONTROL DE DUPLICADOS
             if link in publicadas:
                 print(f"⏩ Ya publicada, salteando: {link}")
                 continue
-                
-            original_title = item.find('title').text or ""
-            original_desc = item.find('description').text or ""
-            
+
+            # Protegido igual que "link": si falta el tag, no rompe el script
+            original_title = item.find('title').text if item.find('title') is not None else ""
+            original_desc = item.find('description').text if item.find('description') is not None else ""
+
             # Buscar Imagen Destacada
             image_url = None
             enclosure = item.find('enclosure')
@@ -60,10 +61,10 @@ for rss_url in FEEDS_RSS:
                     image_url = media_c.get('url')
 
             print(f"🤖 Procesando: {original_title[:40]}...")
-            
-            # Reescribir con Llama 3.3 (Reglas estrictas anti-duplicado + Copete obligado)
+
+            # Reescribir con modelo vigente de Groq (llama-3.3-70b-versatile fue dado de baja en agosto 2026)
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {
                         "role": "system",
@@ -85,7 +86,7 @@ for rss_url in FEEDS_RSS:
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
-            
+
             # Subir Imagen a WordPress
             media_id = None
             if image_url:
@@ -110,9 +111,9 @@ for rss_url in FEEDS_RSS:
             }
             if media_id:
                 post_data["featured_media"] = media_id
-            
+
             wp_res = requests.post(f"{WP_URL}/wp-json/wp/v2/posts", auth=(WP_USER, WP_APP_PASS), json=post_data, timeout=20)
-            
+
             if wp_res.status_code in [200, 201]:
                 print(f"✅ Entrada publicada con éxito (ID: {wp_res.json().get('id')})")
                 publicadas.add(link)
@@ -120,7 +121,7 @@ for rss_url in FEEDS_RSS:
                     f.write(link + "\n")
             else:
                 print(f"❌ Error al conectar con WordPress: {wp_res.status_code}")
-                
+
     except Exception as e:
         print(f"❌ Error procesando el feed {rss_url}: {e}")
 
