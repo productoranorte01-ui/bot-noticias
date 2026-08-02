@@ -1,9 +1,18 @@
+import difflib
 import json
 import os
 import urllib.request
 import xml.etree.ElementTree as ET
 import requests
 from groq import Groq
+
+def son_muy_parecidos(texto_a, texto_b, umbral=0.75):
+    """Detecta si dos textos son 'básicamente lo mismo', no solo si son idénticos letra por letra."""
+    a_norm = " ".join((texto_a or "").lower().split())
+    b_norm = " ".join((texto_b or "").lower().split())
+    if not a_norm or not b_norm:
+        return False
+    return difflib.SequenceMatcher(None, a_norm, b_norm).ratio() >= umbral
 
 # Cargar secretos guardados en GitHub Actions
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -72,7 +81,7 @@ for rss_url in FEEDS_RSS:
                         "content": (
                             "Sos un editor jefe de un portal de noticias digital. Tu misión es reescribir esta noticia de forma 100% ORIGINAL para evitar penalizaciones de Google por contenido duplicado.\n\n"
                             "REGLAS ESTRITAS Y OBLIGATORIAS:\n"
-                            "1. TÍTULO: Está COMPLETAMENTE PROHIBIDO usar el título original o dejar frases idénticas entre comillas. Debes convertirlo en un titular periodístico de impacto, atractivo para Google Discover y sin comillas textuales.\n"
+                            "1. TÍTULO: Está COMPLETAMENTE PROHIBIDO usar el título original o dejar frases idénticas entre comillas. Cambiá el orden de las palabras y el verbo principal: si el original empieza con el sujeto (ej: 'La CGT se suma a la marcha...'), tu versión debe empezar distinto, por ejemplo destacando la consecuencia o el dato más fuerte (ej: 'Crece el rechazo a la ley de tierras: ahora se suma la CGT'). Nunca debe quedar una versión donde solo cambiaste una o dos palabras sueltas.\n"
                             "2. COPETE / BAJADA: El primer párrafo del 'contenido' DEBE ser una bajada/resumen breve encerrada en la etiqueta HTML <strong>...</strong> que sintetice lo más importante de la noticia.\n"
                             "3. CUERPO: Parafraseá el resto del texto en 2 o 3 párrafos en formato HTML (<p>...</p>), usando sinónimos y oraciones propias pero MANTENIENDO la veracidad de los datos reales (nombres, cargos, fechas, lugares).\n"
                             "4. PROHIBIDO ABSOLUTO: no repitas ninguna oración completa del texto original, ni siquiera cambiando una o dos palabras. Cada oración debe estar redactada con estructura y vocabulario propios.\n\n"
@@ -89,10 +98,14 @@ for rss_url in FEEDS_RSS:
             )
             parsed = json.loads(completion.choices[0].message.content)
 
-            # RED DE SEGURIDAD: si a pesar de todo la IA devolvió el título igual al original, no publicamos
+            # RED DE SEGURIDAD: si el título (o el cuerpo) salió muy parecido al original, no publicamos
             titulo_nuevo = (parsed.get("titulo") or "").strip()
-            if titulo_nuevo.lower() == original_title.strip().lower():
-                print(f"⚠️ La IA no reescribió el título (salió igual al original). Se salta esta nota para evitar contenido duplicado: {link}")
+            contenido_nuevo = (parsed.get("contenido") or "").strip()
+            if son_muy_parecidos(titulo_nuevo, original_title):
+                print(f"⚠️ El título salió demasiado parecido al original. Se salta esta nota para evitar contenido duplicado: {link}")
+                continue
+            if son_muy_parecidos(contenido_nuevo, original_desc):
+                print(f"⚠️ El cuerpo salió demasiado parecido al original. Se salta esta nota para evitar contenido duplicado: {link}")
                 continue
 
             # Subir Imagen a WordPress
