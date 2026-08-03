@@ -124,11 +124,12 @@ for rss_url in FEEDS_RSS:
                 except Exception as e:
                     print(f"⚠️ Error al subir imagen: {e}")
 
-            # Publicar Entrada Directamente ("publish")
+            # Publicar Entrada Directamente ("publish") en la categoría Tapa (id 66)
             post_data = {
                 "title": parsed.get("titulo"),
                 "content": parsed.get("contenido"),
-                "status": "publish"
+                "status": "publish",
+                "categories": [66]
             }
             if media_id:
                 post_data["featured_media"] = media_id
