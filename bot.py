@@ -33,7 +33,7 @@ def extraer_imagen_de_html(html):
     return m.group(1) if m else None
 
 def extraer_datos_simple(item):
-    """Receta para feeds 'simples' (ej: dib.com.ar): description corta + imagen en <enclosure>."""
+    """Receta para feeds 'simples' (ej: dib.com.ar, pagina12): description corta + imagen en <enclosure> o <media:content>."""
     link = item.find('link').text if item.find('link') is not None else ""
     title = item.find('title').text if item.find('title') is not None else ""
     desc = item.find('description').text if item.find('description') is not None else ""
@@ -73,6 +73,7 @@ ARCHIVO_HISTORIAL = "historial.txt"
 FEEDS_RSS = [
     {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66},       # Tapa
     {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102},  # La Central
+    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/edicion-impresa/", "tipo": "simple", "categoria": 70},  # Actualidad
 ]
 
 # 1. Cargar la memoria de notas ya publicadas
