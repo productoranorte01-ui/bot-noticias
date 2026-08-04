@@ -1,6 +1,7 @@
 import difflib
 import json
 import os
+import re
 import urllib.request
 import xml.etree.ElementTree as ET
 import requests
@@ -14,6 +15,52 @@ def son_muy_parecidos(texto_a, texto_b, umbral=0.75):
         return False
     return difflib.SequenceMatcher(None, a_norm, b_norm).ratio() >= umbral
 
+def limpiar_html_wordpress(html):
+    """Saca el código de WordPress (comentarios de bloques, etiquetas HTML) y deja texto plano."""
+    if not html:
+        return ""
+    texto = re.sub(r'<!--\s*/?wp:.*?-->', ' ', html, flags=re.DOTALL)
+    texto = re.sub(r'<[^>]+>', ' ', texto)
+    texto = texto.replace('&nbsp;', ' ')
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    return texto[:4000]
+
+def extraer_imagen_de_html(html):
+    """Busca la primera imagen incrustada en el HTML del artículo."""
+    if not html:
+        return None
+    m = re.search(r'<img[^>]+src="([^"]+)"', html)
+    return m.group(1) if m else None
+
+def extraer_datos_simple(item):
+    """Receta para feeds 'simples' (ej: dib.com.ar): description corta + imagen en <enclosure>."""
+    link = item.find('link').text if item.find('link') is not None else ""
+    title = item.find('title').text if item.find('title') is not None else ""
+    desc = item.find('description').text if item.find('description') is not None else ""
+    imagen = None
+    enclosure = item.find('enclosure')
+    if enclosure is not None:
+        imagen = enclosure.get('url')
+    else:
+        media_c = item.find('.//{http://search.yahoo.com/mrss/}content')
+        if media_c is not None:
+            imagen = media_c.get('url')
+    return title, link, desc, imagen
+
+def extraer_datos_wordpress(item):
+    """Receta para feeds de WordPress (ej: cdnoticias.com): contenido completo con HTML + imagen incrustada."""
+    link = item.find('link').text if item.find('link') is not None else ""
+    title = item.find('title').text if item.find('title') is not None else ""
+    contenido_el = item.find('{http://purl.org/rss/1.0/modules/content/}encoded')
+    if contenido_el is not None and contenido_el.text:
+        html_crudo = contenido_el.text
+    else:
+        desc_el = item.find('description')
+        html_crudo = desc_el.text if desc_el is not None else ""
+    imagen = extraer_imagen_de_html(html_crudo)
+    desc = limpiar_html_wordpress(html_crudo)
+    return title, link, desc, imagen
+
 # Cargar secretos guardados en GitHub Actions
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 WP_URL = os.environ.get("WP_URL")
@@ -22,9 +69,10 @@ WP_APP_PASS = os.environ.get("WP_APP_PASS")
 
 ARCHIVO_HISTORIAL = "historial.txt"
 
-# LISTA DE FEEDS RSS
+# LISTA DE FEEDS RSS - cada uno con su "tipo" (receta de lectura) y su categoría de destino en WordPress
 FEEDS_RSS = [
-    "https://dib.com.ar/rss/pages/ultimas-noticias.xml",
+    {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66},       # Tapa
+    {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102},  # La Central
 ]
 
 # 1. Cargar la memoria de notas ya publicadas
@@ -37,8 +85,10 @@ else:
 client = Groq(api_key=GROQ_API_KEY)
 
 # 2. Recorrer los feeds
-for rss_url in FEEDS_RSS:
-    print(f"\n📡 Revisando feed: {rss_url}")
+for feed in FEEDS_RSS:
+    rss_url = feed["url"]
+    categoria_id = feed["categoria"]
+    print(f"\n📡 Revisando feed ({feed['tipo']}): {rss_url}")
     try:
         # Timeout de 15 segundos para evitar cuelgues
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -48,26 +98,16 @@ for rss_url in FEEDS_RSS:
         items = root.findall('.//item')[:3]
 
         for item in items:
-            link = item.find('link').text if item.find('link') is not None else ""
+            # Elegir la receta de lectura según el tipo de feed (como el router de Make)
+            if feed["tipo"] == "wordpress":
+                original_title, link, original_desc, image_url = extraer_datos_wordpress(item)
+            else:
+                original_title, link, original_desc, image_url = extraer_datos_simple(item)
 
             # CONTROL DE DUPLICADOS
             if link in publicadas:
                 print(f"⏩ Ya publicada, salteando: {link}")
                 continue
-
-            # Protegido igual que "link": si falta el tag, no rompe el script
-            original_title = item.find('title').text if item.find('title') is not None else ""
-            original_desc = item.find('description').text if item.find('description') is not None else ""
-
-            # Buscar Imagen Destacada
-            image_url = None
-            enclosure = item.find('enclosure')
-            if enclosure is not None:
-                image_url = enclosure.get('url')
-            else:
-                media_c = item.find('.//{http://search.yahoo.com/mrss/}content')
-                if media_c is not None:
-                    image_url = media_c.get('url')
 
             print(f"🤖 Procesando: {original_title[:40]}...")
 
@@ -124,12 +164,12 @@ for rss_url in FEEDS_RSS:
                 except Exception as e:
                     print(f"⚠️ Error al subir imagen: {e}")
 
-            # Publicar Entrada Directamente ("publish") en la categoría Tapa (id 66)
+            # Publicar Entrada Directamente ("publish") en la categoría correspondiente a este feed
             post_data = {
                 "title": parsed.get("titulo"),
                 "content": parsed.get("contenido"),
                 "status": "publish",
-                "categories": [66]
+                "categories": [categoria_id]
             }
             if media_id:
                 post_data["featured_media"] = media_id
