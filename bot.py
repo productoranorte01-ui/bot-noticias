@@ -71,9 +71,10 @@ ARCHIVO_HISTORIAL = "historial.txt"
 
 # LISTA DE FEEDS RSS - cada uno con su "tipo" (receta de lectura) y su categoría de destino en WordPress
 FEEDS_RSS = [
-    {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66},       # Tapa
+    {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66},        # Tapa
     {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102},  # La Central
     {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/edicion-impresa/", "tipo": "simple", "categoria": 70},  # Actualidad
+    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/secciones/deportes/notas", "tipo": "simple", "categoria": 99}, # Deportes
 ]
 
 # 1. Cargar la memoria de notas ya publicadas
@@ -112,7 +113,7 @@ for feed in FEEDS_RSS:
 
             print(f"🤖 Procesando: {original_title[:40]}...")
 
-            # Reescribir con modelo vigente de Groq (llama-3.3-70b-versatile fue dado de baja en agosto 2026)
+            # Reescribir con modelo de Groq
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
