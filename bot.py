@@ -69,12 +69,12 @@ WP_APP_PASS = os.environ.get("WP_APP_PASS")
 
 ARCHIVO_HISTORIAL = "historial.txt"
 
-# LISTA DE FEEDS RSS - cada uno con su "tipo" (receta de lectura) y su categoría de destino en WordPress
+# LISTA DE FEEDS RSS - cada uno con su "tipo" (receta de lectura), su categoría de destino y cuántas notas revisar
 FEEDS_RSS = [
-    {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66},        # Tapa
-    {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102},  # La Central
-    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/edicion-impresa/", "tipo": "simple", "categoria": 70},  # Actualidad
-    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/secciones/deportes/notas", "tipo": "simple", "categoria": 99}, # Deportes
+    {"url": "https://dib.com.ar/rss/pages/ultimas-noticias.xml", "tipo": "simple", "categoria": 66, "cantidad": 3},       # Tapa
+    {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102, "cantidad": 10},  # La Central (sale mucho más seguido)
+    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/edicion-impresa/", "tipo": "simple", "categoria": 70, "cantidad": 3},  # Actualidad
+    {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/secciones/deportes/notas", "tipo": "simple", "categoria": 99, "cantidad": 3},  # Deportes
 ]
 
 # 1. Cargar la memoria de notas ya publicadas
@@ -97,7 +97,7 @@ for feed in FEEDS_RSS:
         xml_data = urllib.request.urlopen(req, timeout=15).read()
         root = ET.fromstring(xml_data)
 
-        items = root.findall('.//item')[:3]
+        items = root.findall('.//item')[:feed.get("cantidad", 3)]
 
         for item in items:
             # Elegir la receta de lectura según el tipo de feed (como el router de Make)
@@ -113,7 +113,7 @@ for feed in FEEDS_RSS:
 
             print(f"🤖 Procesando: {original_title[:40]}...")
 
-            # Reescribir con modelo de Groq
+            # Reescribir con modelo vigente de Groq (llama-3.3-70b-versatile fue dado de baja en agosto 2026)
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
