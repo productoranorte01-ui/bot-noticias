@@ -117,6 +117,7 @@ for feed in FEEDS_RSS:
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
+                timeout=45,  # Máximo 45 segundos por nota, para que nunca se cuelgue esperando
                 messages=[
                     {
                         "role": "system",
