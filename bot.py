@@ -92,7 +92,6 @@ for feed in FEEDS_RSS:
     categoria_id = feed["categoria"]
     print(f"\n📡 Revisando feed ({feed['tipo']}): {rss_url}")
 
-    # Descargar y parsear el feed - si esto falla, se salta todo el feed (es lo único razonable acá)
     try:
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
         xml_data = urllib.request.urlopen(req, timeout=15).read()
@@ -102,7 +101,6 @@ for feed in FEEDS_RSS:
         print(f"❌ Error descargando/leyendo el feed {rss_url}: {e}")
         continue
 
-    # Procesar cada nota - si UNA falla, se salta solo esa y se sigue con las demás
     for item in items:
         try:
             if feed["tipo"] == "wordpress":
@@ -110,14 +108,12 @@ for feed in FEEDS_RSS:
             else:
                 original_title, link, original_desc, image_url = extraer_datos_simple(item)
 
-            # CONTROL DE DUPLICADOS
             if link in publicadas:
                 print(f"⏩ Ya publicada, salteando: {link}")
                 continue
 
             print(f"🤖 Procesando: {original_title[:40]}...")
 
-            # Reescribir con modelo vigente de Groq (llama-3.3-70b-versatile fue dado de baja en agosto 2026)
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
@@ -141,11 +137,11 @@ for feed in FEEDS_RSS:
                     }
                 ],
                 temperature=0.7,
+                max_tokens=2000,  # Espacio de sobra para que el JSON nunca quede cortado a mitad de camino
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
 
-            # RED DE SEGURIDAD: si el título (o el cuerpo) salió muy parecido al original, no publicamos
             titulo_nuevo = (parsed.get("titulo") or "").strip()
             contenido_nuevo = (parsed.get("contenido") or "").strip()
             if son_muy_parecidos(titulo_nuevo, original_title):
@@ -155,7 +151,6 @@ for feed in FEEDS_RSS:
                 print(f"⚠️ El cuerpo salió demasiado parecido al original. Se salta esta nota para evitar contenido duplicado: {link}")
                 continue
 
-            # Subir Imagen a WordPress
             media_id = None
             if image_url:
                 try:
@@ -171,7 +166,6 @@ for feed in FEEDS_RSS:
                 except Exception as e:
                     print(f"⚠️ Error al subir imagen: {e}")
 
-            # Publicar Entrada Directamente ("publish") en la categoría correspondiente a este feed
             post_data = {
                 "title": parsed.get("titulo"),
                 "content": parsed.get("contenido"),
