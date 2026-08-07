@@ -91,16 +91,20 @@ for feed in FEEDS_RSS:
     rss_url = feed["url"]
     categoria_id = feed["categoria"]
     print(f"\n📡 Revisando feed ({feed['tipo']}): {rss_url}")
+
+    # Descargar y parsear el feed - si esto falla, se salta todo el feed (es lo único razonable acá)
     try:
-        # Timeout de 15 segundos para evitar cuelgues
         req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
         xml_data = urllib.request.urlopen(req, timeout=15).read()
         root = ET.fromstring(xml_data)
-
         items = root.findall('.//item')[:feed.get("cantidad", 3)]
+    except Exception as e:
+        print(f"❌ Error descargando/leyendo el feed {rss_url}: {e}")
+        continue
 
-        for item in items:
-            # Elegir la receta de lectura según el tipo de feed (como el router de Make)
+    # Procesar cada nota - si UNA falla, se salta solo esa y se sigue con las demás
+    for item in items:
+        try:
             if feed["tipo"] == "wordpress":
                 original_title, link, original_desc, image_url = extraer_datos_wordpress(item)
             else:
@@ -187,7 +191,8 @@ for feed in FEEDS_RSS:
             else:
                 print(f"❌ Error al conectar con WordPress: {wp_res.status_code}")
 
-    except Exception as e:
-        print(f"❌ Error procesando el feed {rss_url}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error procesando esta nota puntual, se salta y se sigue con las demás: {e}")
+            continue
 
 print("\n🏁 Revisión automática finalizada.")
