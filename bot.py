@@ -23,7 +23,7 @@ def limpiar_html_wordpress(html):
     texto = re.sub(r'<[^>]+>', ' ', texto)
     texto = texto.replace('&nbsp;', ' ')
     texto = re.sub(r'\s+', ' ', texto).strip()
-    return texto[:4000]
+    return texto[:2500]
 
 def extraer_imagen_de_html(html):
     """Busca la primera imagen incrustada en el HTML del artículo."""
@@ -116,8 +116,8 @@ for feed in FEEDS_RSS:
 
             completion = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
-                reasoning_effort="high",  # Fuerza al modelo a "pensar" antes de responder en vez de copiar el texto de entrada
-                timeout=45,  # Máximo 45 segundos por nota, para que nunca se cuelgue esperando
+                reasoning_effort="high",
+                timeout=45,
                 messages=[
                     {
                         "role": "system",
@@ -137,7 +137,7 @@ for feed in FEEDS_RSS:
                     }
                 ],
                 temperature=0.7,
-                max_tokens=2000,  # Espacio de sobra para que el JSON nunca quede cortado a mitad de camino
+                max_tokens=6000,  # Margen grande para que el razonamiento "high" no deje sin espacio al JSON final
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
