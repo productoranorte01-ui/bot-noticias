@@ -75,6 +75,7 @@ FEEDS_RSS = [
     {"url": "https://cdnoticias.com/index.php/category/central/feed/", "tipo": "wordpress", "categoria": 102, "cantidad": 10},  # La Central (sale mucho más seguido)
     {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/edicion-impresa/", "tipo": "simple", "categoria": 70, "cantidad": 3},  # Actualidad
     {"url": "https://www.pagina12.com.ar/arc/outboundfeeds/rss/secciones/deportes/notas", "tipo": "simple", "categoria": 99, "cantidad": 3},  # Deportes
+    {"url": "https://cdnoticias.com/index.php/category/policiales/feed/", "tipo": "wordpress", "categoria": 105, "cantidad": 3},  # Policiales
 ]
 
 # 1. Cargar la memoria de notas ya publicadas
@@ -137,7 +138,7 @@ for feed in FEEDS_RSS:
                     }
                 ],
                 temperature=0.7,
-                max_tokens=6000,  # Margen grande para que el razonamiento "high" no deje sin espacio al JSON final
+                max_tokens=6000,
                 response_format={"type": "json_object"}
             )
             parsed = json.loads(completion.choices[0].message.content)
